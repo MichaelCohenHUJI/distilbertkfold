@@ -145,19 +145,20 @@ def train_test(dataset_name):
 
         # Add your training loop here
         # Train your model on the training set and evaluate it on the validation set
-        # Remember to track and average your performance metrics across folds
         training_args = TrainingArguments(
-            output_dir='results/results',
+            output_dir='k_fold_results',
+            save_strategy='epoch',
+            save_total_limit=3,
             num_train_epochs=20,
             per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
+            # per_device_eval_batch_size=batch_size,
             warmup_steps=500,
             weight_decay=0.01,
-            logging_dir='./logs',
-            logging_strategy="steps",  # Log based on steps
-            logging_steps=logging_and_eval_steps,
-            evaluation_strategy="steps",
-            eval_steps=logging_and_eval_steps,
+            # logging_dir='./logs',
+            # logging_strategy="steps",  # Log based on steps
+            # logging_steps=logging_and_eval_steps,
+            # evaluation_strategy="steps",
+            # eval_steps=logging_and_eval_steps,
             # logging_strategy="epoch",         # Adjusted to log based on epochs
             # evaluation_strategy="epoch",
         )
@@ -166,7 +167,6 @@ def train_test(dataset_name):
             model=model,
             args=training_args,
             train_dataset=train_dataset,
-            eval_dataset=val_dataset,
             compute_metrics=compute_metrics,
             callbacks=[EpochLoggingCallback()],  # Added custom callback
         )
@@ -184,6 +184,6 @@ def train_test(dataset_name):
 
 
 if __name__ == '__main__':
-    datasets_names = ['iris', 'LED', 'OPT', 'adult']
+    datasets_names = ['iris']
     for dataset in datasets_names:
         train_test(dataset)
