@@ -3,6 +3,5 @@ openml==0.14.2
 pandas==2.2.1
 scikit_learn==1.2.2
 torch==2.2.0
-torch==2.2.0.post100
 transformers==4.37.2
 xgboost==2.0.3
