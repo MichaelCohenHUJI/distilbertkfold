@@ -23,7 +23,6 @@ def get_available_device():
         return torch.device("cpu")
 
 device = get_available_device()
-device = torch.device("cpu")
 
 def load_and_prepare_data(dataset_name):
     if dataset_name == 'iris':
@@ -159,7 +158,7 @@ def train_test(dataset_name):
         val_dataset = Subset(dataset, val_idx)
 
         model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', output_attentions=True,
-                                                                    num_labels=len(set(y_shuffled))).to(device)
+                                                                    num_labels=len(set(y_shuffled)))
 
 
 
