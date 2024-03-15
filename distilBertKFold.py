@@ -92,6 +92,30 @@ class CustomDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.labels)
 
+def compute_metrics(pred):
+    labels = pred.label_ids
+    preds = pred.predictions[0].argmax(-1)
+    acc = accuracy_score(labels, preds)
+    return {'accuracy': acc}
+
+
+class EpochLoggingCallback(TrainerCallback):
+    def __init__(self, filename='train_log.txt'):
+        self.file_name = filename
+        # Ensure the file is cleared at the beginning of training
+        with open(self.file_name, 'a') as file:
+            file.write("Training Log\n")
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        with open(self.file_name, 'a') as file:
+            file.write("--------------------------------\n")
+            file.write(f"\nEpoch: {state.epoch}\n")
+            train_results = trainer.predict(train_dataset)
+            file.write("Trianing Accuracy: " + str(train_results.metrics['test_accuracy']) + " \n")
+            test_results = trainer.predict(val_dataset)
+            file.write("Test Accuracy: " + str(test_results.metrics['test_accuracy']) + " \n")
+            file.write("--------------------------------\n")
+
 
 
 # X_train, X_val, y_train, y_val = train_test_split(X_text_shuffled, y_shuffled, test_size=0.2, random_state=42)
@@ -129,34 +153,14 @@ def train_test(dataset_name):
             file.write("--------------------------------\n")
 
         # Split the data
+
         train_dataset = Subset(dataset, train_idx)
         val_dataset = Subset(dataset, val_idx)
 
-        model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased',
+        model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', output_attentions=True,
                                                                     num_labels=len(set(y_shuffled))).to(device)
 
-        def compute_metrics(pred):
-            labels = pred.label_ids
-            preds = pred.predictions.argmax(-1)
-            acc = accuracy_score(labels, preds)
-            return {'accuracy': acc}
 
-        class EpochLoggingCallback(TrainerCallback):
-            def __init__(self, file_name=filename):
-                self.file_name = file_name
-                # Ensure the file is cleared at the beginning of training
-                with open(self.file_name, 'a') as file:
-                    file.write("Training Log\n")
-
-            def on_epoch_end(self, args, state, control, **kwargs):
-                with open(self.file_name, 'a') as file:
-                    file.write("--------------------------------\n")
-                    file.write(f"\nEpoch: {state.epoch}\n")
-                    train_results = trainer.predict(train_dataset)
-                    file.write("Trianing Accuracy: " + str(train_results.metrics['test_accuracy']) + " \n")
-                    test_results = trainer.predict(val_dataset)
-                    file.write("Test Accuracy: " + str(test_results.metrics['test_accuracy']) + " \n")
-                    file.write("--------------------------------\n")
 
         # Add your training loop here
         # Train your model on the training set and evaluate it on the validation set
@@ -183,7 +187,7 @@ def train_test(dataset_name):
             args=training_args,
             train_dataset=train_dataset,
             compute_metrics=compute_metrics,
-            callbacks=[EpochLoggingCallback()],  # Added custom callback
+            callbacks=[EpochLoggingCallback(filename)],  # Added custom callback
 
         )
 
@@ -200,6 +204,6 @@ def train_test(dataset_name):
 
 
 if __name__ == '__main__':
-    datasets_names = ['LED']
+    datasets_names = ['iris']
     for dataset in datasets_names:
         train_test(dataset)

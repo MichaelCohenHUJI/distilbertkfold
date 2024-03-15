@@ -80,7 +80,7 @@ def convert_to_text(data):
     return [f"{np.array2string(sample, separator=', ', max_line_width=np.inf)[1:-1]}" for sample in data]
 
 
-def load_and_prepare_data(dataset_name, nonesense_features=None, return_numbers=False):
+def load_and_prepare_data(dataset_name, nonesense_features: list = None, return_numbers=False):
     X = None
     y = None
     if dataset_name == 'iris':
@@ -181,14 +181,21 @@ def compute_metrics(pred):
     acc = accuracy_score(labels, preds)
     return {'accuracy': acc}
 
-# Load the dataset (either 'iris' or 'digits')
-
+def output_file_name(dataset_name, nonsense_features: list = None, folds: int = 1):
+    if nonsense_features is None:
+        nonsense_features = ''
+    else:
+        nonsense_features = '_' + str(nonsense_features)
+    kfold_addition = '_' + str(folds) + 'f' if folds > 1 else ''
+    ending = '_train_log.txt'
+    file_name = dataset_name + nonsense_features + kfold_addition + ending
+    return file_name
 
 class EpochLoggingCallback(TrainerCallback):
-    def __init__(self, data_name="", nonsense=list()):
+    def __init__(self, data_name="", nonsense: list = None):
         self.file_name = data_name + '_train_log.txt'
-        if nonsense != []:
-            self.file_name = data_name + "_" + str(nonsense) + "_" + '_train_log.txt'
+        if nonsense is not None:
+            self.file_name = data_name + "_" + str(nonsense) + '_train_log.txt'
         # Ensure the file is cleared at the beginning of training
         with open(self.file_name, 'w') as file:
             file.write("Training Log\n")
@@ -200,7 +207,7 @@ class EpochLoggingCallback(TrainerCallback):
             train_results = trainer.predict(train_dataset)
             file.write("Trianing Accuracy: "+ str(train_results.metrics['test_accuracy']) + " \n")
             test_results = trainer.predict(val_dataset)
-            file.write("Test Accuracy: "+ str(test_results.metrics['test_accuracy']) + " \n")
+            file.write("Test Accuracy: " + str(test_results.metrics['test_accuracy']) + " \n")
 
             # # The Trainer stores current training and validation metrics in `state.log_history`
             # train_logs = [log for log in state.log_history if "loss" in log]
@@ -211,10 +218,12 @@ class EpochLoggingCallback(TrainerCallback):
             #     print(f"Validation Accuracy: {eval_logs[-1].get('eval_accuracy', 'N/A')}")
 
 
-def train_test_distilbert():
+
+
+def train_test_distilbert(dataset_name, nonsense_features: list = None, folds: int = 1):
     global train_dataset, val_dataset, trainer
-    nonsense_features = []
-    dataset_name = 'LED'  # Change to 'iris' to switch back
+    filename = output_file_name(dataset_name, nonsense_features, folds)
+    # load dataset
     X_text_shuffled, y_shuffled = load_and_prepare_data(dataset_name, nonsense_features)
     # Tokenize the text descriptions
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
@@ -224,7 +233,7 @@ def train_test_distilbert():
     train_dataset = CustomDataset(train_encodings, y_train)
     val_dataset = CustomDataset(val_encodings, y_val)
     model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', output_attentions=True,
-                                                                num_labels=len(set(y_shuffled)), ).to(device)
+                                                                num_labels=len(set(y_shuffled))).to(device)
     total_train_examples = len(train_dataset)
     batch_size = 16
     steps_per_epoch = total_train_examples // batch_size
@@ -270,8 +279,8 @@ def train_test_distilbert():
     tokenizer.save_pretrained(model_path)
 
 if __name__ == '__main__':
-
-    train_test_distilbert()
+    dataset_name = "iris"
+    train_test_distilbert(dataset_name)
 # train_results = trainer.predict(train_dataset)
 # test_results = trainer.evaluate()
 # print(train_results.metrics['test_accuracy'])
