@@ -25,6 +25,8 @@ def get_available_device():
         return torch.device("cpu")
 
 device = get_available_device()
+device = torch.device("cpu")
+
 
 # todo change dataset to python
 def add_nonsense_float_features(dataset, num_features=1):

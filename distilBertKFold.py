@@ -23,6 +23,7 @@ def get_available_device():
         return torch.device("cpu")
 
 device = get_available_device()
+device = torch.device("cpu")
 
 def load_and_prepare_data(dataset_name):
     if dataset_name == 'iris':
@@ -133,7 +134,7 @@ def train_test(dataset_name):
     # Tokenize the text descriptions
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
     encodings = tokenizer(X_text_shuffled, truncation=True, padding=True)
-    dataset = CustomDataset(encodings, y_shuffled)
+    dataset = CustomDataset(encodings, y_shuffled, pin_)
     # dataset = TensorDataset(encodings['input_ids'], encodings['attention_mask'], torch.tensor(labels))
     total_train_examples = int(len(dataset) * 0.8)
     batch_size = 16
