@@ -168,8 +168,8 @@ class CustomDataset(torch.utils.data.Dataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx], device=device) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels[idx], device=device)
+        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        item['labels'] = torch.tensor(self.labels[idx])
         return item
 
     def __len__(self):
@@ -234,7 +234,7 @@ def train_test_distilbert(dataset_name, nonsense_features: list = None, folds: i
     train_dataset = CustomDataset(train_encodings, y_train)
     val_dataset = CustomDataset(val_encodings, y_val)
     model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', output_attentions=True,
-                                                                num_labels=len(set(y_shuffled)))
+                                                                num_labels=len(set(y_shuffled))).to(device)
     total_train_examples = len(train_dataset)
     batch_size = 16
     steps_per_epoch = total_train_examples // batch_size
