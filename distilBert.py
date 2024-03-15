@@ -226,7 +226,7 @@ def train_test_distilbert(dataset_name, nonsense_features: list = None, folds: i
     filename = output_file_name(dataset_name, nonsense_features, folds)
     # load dataset
     X_text_shuffled, y_shuffled = load_and_prepare_data(dataset_name, nonsense_features)
-    # Tokenize the text descriptions
+    # Tokenize the text descriptions1
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
     X_train, X_val, y_train, y_val = train_test_split(X_text_shuffled, y_shuffled, test_size=0.2, random_state=42)
     train_encodings = tokenizer(X_train, truncation=True, padding=True, return_tensors="pt")
