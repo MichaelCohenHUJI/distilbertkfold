@@ -4,6 +4,7 @@ from transformers import TrainerCallback
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import LabelEncoder
 import openml
 import numpy as np
 from datetime import datetime
@@ -11,7 +12,7 @@ import nltk
 from nltk.corpus import words
 import os
 
-
+prng = np.random.RandomState(42)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -29,8 +30,7 @@ device = get_available_device()
 def add_nonsense_float_features(dataset, num_features=1):
     dim = len(dataset)
     for i in range(num_features):
-        rng = np.random.default_rng()
-        random_col = 100 * rng.standard_normal(size=dim, dtype=np.float32)
+        random_col = 100 * prng.standard_normal(size=dim)
         # random_col = np.random.normal(loc=0, scale=100, size=dim, dtype=np.float32)
         random_col = random_col.reshape((-1, 1))
         random_col = random_col.astype(np.float32).round(2)
@@ -80,8 +80,7 @@ def convert_to_text(data):
     return [f"{np.array2string(sample, separator=', ', max_line_width=np.inf)[1:-1]}" for sample in data]
 
 
-def load_and_prepare_data(dataset_name, nonesense_features=None):
-    X_text = None
+def load_and_prepare_data(dataset_name, nonesense_features=None, return_numbers=False):
     X = None
     y = None
     if dataset_name == 'iris':
@@ -123,6 +122,12 @@ def load_and_prepare_data(dataset_name, nonesense_features=None):
         dataset = openml.datasets.get_dataset(1590)
         X, y, _, _ = dataset.get_data(target=dataset.default_target_attribute)
         y = [0 if val=='<=50K' else 1 for val in y.array]
+        if return_numbers:
+            le = LabelEncoder()
+            for col in X.columns:
+                if X[col].dtype == 'object' or X[col].dtype.name == 'category':
+                    X[col] = le.fit_transform(X[col])
+
         X = X.to_numpy()
         # def convert_to_text(data):
         #     return [f"{np.array2string(sample, separator=', ', max_line_width=np.inf)[1:-1]}" for sample in data]
@@ -141,11 +146,16 @@ def load_and_prepare_data(dataset_name, nonesense_features=None):
             elif feature == 'words':
                 X = add_nonsense_word_features(X)
 
-    if X is not None:
-        X_text = convert_to_text(X)
+    prng.shuffle(X.T)
 
-    if X_text is not None:
+    if return_numbers:
+        _X_text_shuffled, _y_shuffled = shuffle(X, y, random_state=42)
+        return _X_text_shuffled, _y_shuffled
+
+    if X is not None:
         # Shuffle the dataset
+        X_text = convert_to_text(X)
+        print(X_text[0])
         _X_text_shuffled, _y_shuffled = shuffle(X_text, y, random_state=42)
         return _X_text_shuffled, _y_shuffled
 
@@ -204,7 +214,7 @@ class EpochLoggingCallback(TrainerCallback):
 def train_test_distilbert():
     global train_dataset, val_dataset, trainer
     nonsense_features = []
-    dataset_name = 'iris'  # Change to 'iris' to switch back
+    dataset_name = 'LED'  # Change to 'iris' to switch back
     X_text_shuffled, y_shuffled = load_and_prepare_data(dataset_name, nonsense_features)
     # Tokenize the text descriptions
     tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
@@ -223,7 +233,7 @@ def train_test_distilbert():
         output_dir='./results',
         save_strategy='epoch',
         save_total_limit=3,
-        num_train_epochs=15,
+        num_train_epochs=17,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         warmup_steps=500,
@@ -253,13 +263,15 @@ def train_test_distilbert():
     # exit()
     trainer.train()
     nonsense_path = str(nonsense_features)[1:-1]
-    if nonsense_path != '':
-        nonsense_path = "_" + nonsense_path
-    model_path = "./models/" + dataset_name + nonsense_path
+    if nonsense_path != '' and nonsense_features is not None:
+        dataset_name = "_" + nonsense_path
+    model_path = "./models/" + dataset_name
     model.save_pretrained(model_path)
     tokenizer.save_pretrained(model_path)
 
-train_test_distilbert()
+if __name__ == '__main__':
+
+    train_test_distilbert()
 # train_results = trainer.predict(train_dataset)
 # test_results = trainer.evaluate()
 # print(train_results.metrics['test_accuracy'])

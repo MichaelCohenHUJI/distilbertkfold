@@ -9,9 +9,20 @@ import numpy as np
 import os
 from torch.utils.data import DataLoader, Subset, TensorDataset
 from sklearn.model_selection import KFold
+from datetime import datetime
+
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+def get_available_device():
+    if torch.backends.mps.is_available():
+        return torch.device("mps")  # Use Apple Metal if available
+    elif torch.cuda.is_available():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
+
+device = get_available_device()
 
 def load_and_prepare_data(dataset_name):
     if dataset_name == 'iris':
@@ -74,8 +85,8 @@ class CustomDataset(torch.utils.data.Dataset):
         self.labels = labels
 
     def __getitem__(self, idx):
-        item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels[idx])
+        item = {key: torch.tensor(val[idx], device=device) for key, val in self.encodings.items()}
+        item['labels'] = torch.tensor(self.labels[idx], device=device)
         return item
 
     def __len__(self):
@@ -92,7 +103,7 @@ class CustomDataset(torch.utils.data.Dataset):
 # total_train_examples = len(train_dataset)
 def train_test(dataset_name):
     global train_dataset, val_dataset, trainer
-    filename = dataset_name + "_train_log.txt"
+    filename = dataset_name + "_kf_train_log.txt"
     # Load the dataset (either 'iris' or 'digits')
     X_text_shuffled, y_shuffled = load_and_prepare_data(dataset_name)
     # Tokenize the text descriptions
@@ -109,10 +120,12 @@ def train_test(dataset_name):
     total_accuracy = 0
     with open(filename, 'w') as file:
         file.write(f"Started Training\n")
+        file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         file.write("--------------------------------\n")
     for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
         with open(filename, 'a') as file:
             file.write(f"FOLD {fold}\n")
+            file.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             file.write("--------------------------------\n")
 
         # Split the data
@@ -120,7 +133,7 @@ def train_test(dataset_name):
         val_dataset = Subset(dataset, val_idx)
 
         model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased',
-                                                                    num_labels=len(set(y_shuffled)))
+                                                                    num_labels=len(set(y_shuffled))).to(device)
 
         def compute_metrics(pred):
             labels = pred.label_ids
@@ -137,16 +150,18 @@ def train_test(dataset_name):
 
             def on_epoch_end(self, args, state, control, **kwargs):
                 with open(self.file_name, 'a') as file:
+                    file.write("--------------------------------\n")
                     file.write(f"\nEpoch: {state.epoch}\n")
                     train_results = trainer.predict(train_dataset)
                     file.write("Trianing Accuracy: " + str(train_results.metrics['test_accuracy']) + " \n")
                     test_results = trainer.predict(val_dataset)
                     file.write("Test Accuracy: " + str(test_results.metrics['test_accuracy']) + " \n")
+                    file.write("--------------------------------\n")
 
         # Add your training loop here
         # Train your model on the training set and evaluate it on the validation set
         training_args = TrainingArguments(
-            output_dir='k_fold_results',
+            output_dir='./results',
             save_strategy='epoch',
             save_total_limit=3,
             num_train_epochs=20,
@@ -169,6 +184,7 @@ def train_test(dataset_name):
             train_dataset=train_dataset,
             compute_metrics=compute_metrics,
             callbacks=[EpochLoggingCallback()],  # Added custom callback
+
         )
 
         trainer.train()
@@ -184,6 +200,6 @@ def train_test(dataset_name):
 
 
 if __name__ == '__main__':
-    datasets_names = ['iris']
+    datasets_names = ['LED']
     for dataset in datasets_names:
         train_test(dataset)
