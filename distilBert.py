@@ -234,7 +234,7 @@ def train_test_distilbert(dataset_name, nonsense_features: list = None, folds: i
     train_dataset = CustomDataset(train_encodings, y_train)
     val_dataset = CustomDataset(val_encodings, y_val)
     model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased', output_attentions=True,
-                                                                num_labels=len(set(y_shuffled))).to(device)
+                                                                num_labels=len(set(y_shuffled)))
     total_train_examples = len(train_dataset)
     batch_size = 16
     steps_per_epoch = total_train_examples // batch_size
